@@ -1,0 +1,31 @@
+# Solution of the point processor. Uncomment only 1 line:
+#processorType: PCL
+processorType: STUDENT
+
+# Time between 2 pcd files in milliseconds. Set to 0 to max speed.
+streamInterval_ms: 0
+
+# Source dir of the PCD files. This will only be read once during program start-up
+dataSet: data_1
+
+# Filtering parameters
+filterResolution: 0.2
+cropMinPoint: -10.0 -5.0 -2.0 1.0
+cropMaxPoint: 30.0 6.8 1.0 1.0
+
+# SegmentPlane parameters
+spMaxIterations: 30
+spDistanceThreshold: 0.3
+
+# Clustering parameters
+clusterTolerance: 0.40
+clusterMinSize: 10
+clusterMaxSize: 500
+
+# Visualization Options
+renderInputCloud: 0
+renderFilteredCloud: 0
+renderObstacles: 0
+renderPlane: 1
+renderClusters: 1
+renderBoxes: 1

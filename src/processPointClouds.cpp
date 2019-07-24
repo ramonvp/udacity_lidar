@@ -220,97 +220,67 @@ StudentPointProcessor<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Pt
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 	
-    std::unordered_set<int> inliers_indices = RansacPlane(cloud, maxIterations, distanceThreshold);
-    if (inliers_indices.size () == 0)
+    PlaneParams bestPlane;
+
+	srand(time(NULL));
+
+    int inc = 1;
+
+    // Generate now all points we will use in ransac
+    std::unordered_set<int> temp_inliers;
+    while( temp_inliers.size() < 3*maxIterations)
+        temp_inliers.insert( rand()%cloud->size() );
+	auto it = temp_inliers.begin();
+
+	// For max iterations 
+	while( maxIterations--)
+	{
+		const PointT & p1 = cloud->points[*it++];
+		const PointT & p2 = cloud->points[*it++];
+		const PointT & p3 = cloud->points[*it++];
+
+        PlaneParams plane(p1, p2, p3);
+
+		for(int p = 0; p < cloud->points.size(); p += inc)
+		{
+            if( plane.distanceToPoint(cloud->points[p]) < distanceThreshold)
+				plane.numInliers++;
+		}
+
+		if( plane.numInliers > bestPlane.numInliers )
+		{
+            bestPlane = plane;
+		}
+	}
+
+    if (bestPlane.numInliers == 0)
     {
-      std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+        std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
     }
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateCloudsRamon(inliers_indices,cloud);
+    // Up to here, we have the best plane parameters we can get out of maxIterations
+    // So let's go and extract the points. We will use the same loop to both create the
+    // plane cloud and separate the obstacle cloud
+    typename pcl::PointCloud<PointT>::Ptr obstCloud(new pcl::PointCloud<PointT>());
+    typename pcl::PointCloud<PointT>::Ptr planeCloud(new pcl::PointCloud<PointT>());
+
+    for(int index = 0; index < cloud->points.size(); index++)
+    {
+        if( bestPlane.distanceToPoint(cloud->points[index]) < distanceThreshold)
+            planeCloud->points.push_back(cloud->points[index]);
+        else
+            obstCloud->points.push_back(cloud->points[index]);
+    }
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
-    
-    return segResult;
-}
-
-template<typename PointT>
-std::unordered_set<int> StudentPointProcessor<PointT>::RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceTol)
-{
-	std::unordered_set<int> inliersResult;
-	srand(time(NULL));
-	
-	// For max iterations 
-	while( maxIterations--)
-	{
-
-		std::unordered_set<int> temp_inliers;
-
-		while( temp_inliers.size() < 3)
-			temp_inliers.insert( rand()%cloud->size() );
-
-		auto it = temp_inliers.begin();
-		const PointT & p1 = cloud->points[*it++];
-		const PointT & p2 = cloud->points[*it++];
-		const PointT & p3 = cloud->points[*it];
-
-		double i = (p2.y - p1.y)*(p3.z - p1.z) - (p2.z-p1.z)*(p3.y-p1.y);
-		double j = (p2.z-p1.z)*(p3.x-p1.x) - (p2.x-p1.x)*(p3.z-p1.z);
-		double k = (p2.x-p1.x)*(p3.y-p1.y) - (p2.y-p1.y)*(p3.x-p1.x);
-
-
-		double A = i;
-		double B = j;
-		double C = k;
-		double D = -(i*p1.x + j*p1.y + k*p1.z);
-
-
-		for(int p = 0; p < cloud->points.size(); p++)
-		{
-			if( temp_inliers.count(p) ) continue;
-
-			const PointT & point = cloud->points[p];
-			double distance = fabs(A*point.x + B*point.y + C*point.z + D)/sqrt( A*A + B*B + C*C);
-			if( distance < distanceTol)
-				temp_inliers.insert(p);
-		}
-
-		if( temp_inliers.size() > inliersResult.size() )
-		{
-			inliersResult.clear();
-			inliersResult = temp_inliers;
-		}
-
-	}
-
-	return inliersResult;
-}
-
-template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> 
-StudentPointProcessor<PointT>::SeparateCloudsRamon(const std::unordered_set<int> & inliers, typename pcl::PointCloud<PointT>::Ptr cloud)
-{
-    typename pcl::PointCloud<PointT>::Ptr obstCloud(new pcl::PointCloud<PointT>());
-    typename pcl::PointCloud<PointT>::Ptr planeCloud(new pcl::PointCloud<PointT>());
-
-    for( int index : inliers)
-    {
-        planeCloud->points.push_back( cloud->points[index] );
-    }
-
-    for( int index = 0; index < cloud->points.size(); index++)
-    {
-        if( inliers.count(index) == 0)
-            obstCloud->points.push_back( cloud->points[index] );
-    }
 
     return std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr>(obstCloud, planeCloud);
 }
 
-
 template<typename PointT>
-void StudentPointProcessor<PointT>::Proximity(const std::vector<std::vector<float>>& points, KdTree * tree, float distanceTol, int pointIndex, std::vector<bool> & points_processed, std::vector<int> & cluster )
+void StudentPointProcessor<PointT>::Proximity(typename pcl::PointCloud<PointT>::Ptr cloud, KdTree<PointT> * tree, float distanceTol, int pointIndex, std::vector<bool> & points_processed, std::vector<int> & cluster )
 {
 	if( points_processed[pointIndex] ) return;
 
@@ -318,35 +288,11 @@ void StudentPointProcessor<PointT>::Proximity(const std::vector<std::vector<floa
 
 	cluster.push_back(pointIndex);
 
-	std::vector<int> nearby = tree->search(points[pointIndex], distanceTol);
+	std::vector<int> nearby = tree->search(&cloud->points[pointIndex], distanceTol);
 	for( int i : nearby )
 	{
-		Proximity(points, tree, distanceTol, i, points_processed, cluster);
+		Proximity(cloud, tree, distanceTol, i, points_processed, cluster);
 	}
-}
-
-template<typename PointT>
-std::vector<std::vector<int>> StudentPointProcessor<PointT>::euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
-{
-
-	// TODO: Fill out this function to return list of indices for each cluster
-
-	std::vector<std::vector<int>> clusters;
- 
-	std::vector<bool> points_processed( points.size(), false);
-
-	for( int i = 0; i < points.size(); i++)
-	{
-		if( points_processed[i] == false )
-		{
-			std::vector<int> new_cluster;
-			Proximity( points, tree, distanceTol, i, points_processed, new_cluster);
-			clusters.push_back(new_cluster);
-		}
-	}
-
-	return clusters;
-
 }
 
 template<typename PointT>
@@ -357,18 +303,29 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> StudentPointProcessor<PointT>
 
     std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
 
-    KdTree tree;
-    std::vector<std::vector<float>> cloud_points;
+    // Step 1: fill-in the KdTree
     // TODO: Should order before inserting in the tree in order to have a more balanced tree
-    // TODO: Make euclieanCluster be able to accept pcl::PointCloud<PointT>::Ptr cloud as input
+    KdTree<PointT> tree(3);
     for( int i = 0; i < cloud->points.size(); i++)
     {
-        std::vector<float> point(cloud->points[i].data, cloud->points[i].data+3);   
-        tree.insert(point, i);
-        cloud_points.push_back(point);
+        tree.insert(&cloud->points[i], i);
     }
 
-    std::vector<std::vector<int>> cluster_indices = euclideanCluster(cloud_points, &tree, clusterTolerance);
+    // Step 2: Do the clustering (returns indices)
+	std::vector<std::vector<int>> cluster_indices;
+ 	std::vector<bool> points_processed( cloud->points.size(), false);
+
+	for( int i = 0; i < cloud->points.size(); i++)
+	{
+		if( points_processed[i] == false )
+		{
+			std::vector<int> new_cluster;
+			Proximity( cloud, &tree, clusterTolerance, i, points_processed, new_cluster);
+			cluster_indices.push_back(new_cluster);
+		}
+	}
+
+    // Step 3: 
     for (auto & cluster : cluster_indices)
     {
         // discard cluster if it is not big enough
@@ -393,7 +350,7 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> StudentPointProcessor<PointT>
 
         std::cout << "PointCloud representing the Cluster: " << cloud_cluster->points.size () << " data points." << std::endl;
     }
-    
+ 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "clustering took " << elapsedTime.count() << " milliseconds and found " << clusters.size() << " clusters" << std::endl;

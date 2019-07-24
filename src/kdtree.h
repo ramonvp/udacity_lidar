@@ -5,31 +5,33 @@
 #include <cmath>
 
 // Structure to represent node of kd tree
-struct Node
-{
-	std::vector<float> point;
-	int id;
-	Node* left;
-	Node* right;
 
-	Node(std::vector<float> arr, int setId)
-	:	point(arr), id(setId), left(NULL), right(NULL)
-	{}
-
-	~Node()
-	{
-		delete left;
-		delete right;
-	}
-};
-
+template<typename PointT>
 struct KdTree
 {
-	Node* root;
-	uint dimensions;
+	struct Node
+	{
+		const PointT * point;
+		int id;
+		Node* left;
+		Node* right;
 
-	KdTree()
-	: root(NULL), dimensions(0)
+		Node(const PointT * p, int setId)
+		:	point(p), id(setId), left(NULL), right(NULL)
+		{}
+
+		~Node()
+		{
+			delete left;
+			delete right;
+		}
+	};
+
+	Node* root;
+	const uint dimensions;
+
+	KdTree(uint dim)
+	: root(NULL), dimensions(dim)
 	{}
 
 	~KdTree()
@@ -38,21 +40,14 @@ struct KdTree
 	}
 
 
-	void insert(std::vector<float> point, int id)
+	void insert(const PointT * point, int id)
 	{
-		// TODO: Fill in this function to insert a new point into the tree
-		// the function should create a new node and place correctly with in the root 
 		Node ** next_node = &root;
 		uint depth = 0;
 
-		if(dimensions == 0)
-			dimensions = point.size();
-
-		assert(dimensions == point.size());
-
 		while( *next_node )
 		{
-			if ( point[depth%dimensions] < (*next_node)->point[depth%dimensions] )
+			if ( point->data[depth%dimensions] < (*next_node)->point->data[depth%dimensions] )
 			{
 				next_node = &(*next_node)->left;
 			}
@@ -66,38 +61,37 @@ struct KdTree
 		*next_node = new Node(point, id);
 	}
 
-	void searchFromNode(std::vector<int> & ids, std::vector<float> target, float distanceTol, Node * node, uint depth)
+	void searchFromNode(std::vector<int> & ids, const PointT * target, float distanceTol, Node * node, uint depth)
 	{
-		if( node == NULL ) return;
+		if( node == NULL || target == NULL) return;
 
-		float box_x1 = target[0] - distanceTol;
-		float box_x2 = target[0] + distanceTol;
-		float box_y1 = target[1] - distanceTol;
-		float box_y2 = target[1] + distanceTol;
+		float box_x1 = target->data[0] - distanceTol;
+		float box_x2 = target->data[0] + distanceTol;
+		float box_y1 = target->data[1] - distanceTol;
+		float box_y2 = target->data[1] + distanceTol;
 
-		float point_x = node->point[0];
-		float point_y = node->point[1];
+		float point_x = node->point->data[0];
+		float point_y = node->point->data[1];
 
 		// point is inside the tolerance box
 		if( point_x >= box_x1 && point_x <= box_x2 && point_y >= box_y1 && point_y <= box_y2)
 		{
 			// check if it is in real tolerance
-			float distance = sqrt(pow(target[0]-point_x, 2) + pow(target[1]-point_y,2));
+			float distance = sqrt(pow(target->data[0]-point_x, 2) + pow(target->data[1]-point_y,2));
 			if( distance <= distanceTol )
 			{
 				ids.push_back(node->id);
 			}
 		}
 		
-		//uint dim = depth%2;
 		uint dim = depth%dimensions;
 
-		if(target[dim] - distanceTol < node->point[dim])
+		if(target->data[dim] - distanceTol < node->point->data[dim])
 		{
 			searchFromNode(ids, target, distanceTol, node->left, depth+1);
 		}
 
-		if(target[dim] + distanceTol > node->point[dim])
+		if(target->data[dim] + distanceTol > node->point->data[dim])
 		{
 			searchFromNode(ids, target, distanceTol, node->right, depth+1);
 		}
@@ -105,7 +99,7 @@ struct KdTree
 	}
 
 	// return a list of point ids in the tree that are within distance of target
-	std::vector<int> search(std::vector<float> target, float distanceTol)
+	std::vector<int> search(const PointT * target, float distanceTol)
 	{
 		std::vector<int> ids;
 
@@ -119,7 +113,3 @@ struct KdTree
 	
 
 };
-
-
-
-

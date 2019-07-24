@@ -78,6 +78,39 @@ template<typename PointT>
 class StudentPointProcessor : public ProcessPointClouds<PointT> {
 public:
 
+    // Simple helper class to create a plane given 3 points and calculate distance to any given point
+    struct PlaneParams
+    {
+        PlaneParams() : A(0.0), B(0.0), C(0.0), D(0.0), numInliers(0) {}
+
+        PlaneParams(const PointT & p1, const PointT & p2, const PointT & p3) : numInliers(0)
+        {
+    		A = (p2.y - p1.y)*(p3.z - p1.z) - (p2.z-p1.z)*(p3.y-p1.y);
+            B = (p2.z-p1.z)*(p3.x-p1.x) - (p2.x-p1.x)*(p3.z-p1.z);
+            C = (p2.x-p1.x)*(p3.y-p1.y) - (p2.y-p1.y)*(p3.x-p1.x);
+            D = -(A*p1.x + B*p1.y + C*p1.z);
+        }
+
+        PlaneParams& operator=(const PlaneParams& other)
+        {
+            A = other.A;
+            B = other.B;
+            C = other.C;
+            D = other.D;
+            numInliers = other.numInliers;
+
+            return *this;
+        }
+
+        double distanceToPoint(const PointT & point)
+        {
+            return fabs(A*point.x + B*point.y + C*point.z + D)/sqrt( A*A + B*B + C*C);
+        }
+
+   		double A, B, C, D;
+        uint32_t numInliers;
+    };
+
     //constructor
     StudentPointProcessor() {}
     //deconstructor
@@ -86,18 +119,13 @@ public:
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr>
     SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold);
 
+
     std::vector<typename pcl::PointCloud<PointT>::Ptr>
     Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize);
 
 protected:
-    std::unordered_set<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceTol);
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SeparateCloudsRamon(const std::unordered_set<int> & inliers, typename pcl::PointCloud<PointT>::Ptr cloud);
 
-    void Proximity(const std::vector<std::vector<float>>& points, KdTree * tree, float distanceTol, int pointIndex, std::vector<bool> & points_processed, std::vector<int> & cluster );
-
-    std::vector<std::vector<int>>
-    euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol);
-
+    void Proximity(typename pcl::PointCloud<PointT>::Ptr points, KdTree<PointT> * tree, float distanceTol, int pointIndex, std::vector<bool> & points_processed, std::vector<int> & cluster );
 };
 
 

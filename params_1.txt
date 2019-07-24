@@ -3,7 +3,7 @@
 processorType: STUDENT
 
 # Time between 2 pcd files in milliseconds. Set to 0 to max speed.
-streamInterval_ms: 0
+streamInterval_ms: 100
 
 # Source dir of the PCD files. This will only be read once during program start-up
 dataSet: data_1
@@ -15,12 +15,12 @@ cropMaxPoint: 30.0 6.8 1.0 1.0
 
 # SegmentPlane parameters
 spMaxIterations: 30
-spDistanceThreshold: 0.3
+spDistanceThreshold: 0.15
 
 # Clustering parameters
-clusterTolerance: 0.40
+clusterTolerance: 0.4
 clusterMinSize: 10
-clusterMaxSize: 500
+clusterMaxSize: 550
 
 # Visualization Options
 renderInputCloud: 0

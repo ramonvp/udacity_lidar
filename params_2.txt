@@ -15,7 +15,7 @@ cropMaxPoint: 30.0 6.8 1.0 1.0
 
 # SegmentPlane parameters
 spMaxIterations: 30
-spDistanceThreshold: 0.3
+spDistanceThreshold: 0.15
 
 # Clustering parameters
 clusterTolerance: 0.40
@@ -32,4 +32,4 @@ renderBoxes: 1
 
 # Cyclist challenge, needs renderBoxes: 1 to display the results
 followCyclist: 1
-boxTolerance: 0.6
+boxTolerance: 0.4
